@@ -1,0 +1,164 @@
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+    <title>Vine Rover SAP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+</head>  
+<style>
+* {box-sizing: border-box}
+    body {font-family: "Lato", sans-serif;}
+    /* Style the control panel */
+    .control {
+        float: left;
+        background-color:Aqua;
+        height: 450px;
+        width: 450px;
+        border: 3px solid black;
+    }
+    /* Style the tab content */
+    .googlemap {
+        float: left;
+        border: 3px solid black;
+        width: 550px;
+        height: 450px;
+    }    
+    /* Style the serial stream panel */
+    .serialstream {
+    float: left;
+    border: 1px solid black;
+    width 1000px;
+    height: 300px;
+    background-color:White;
+    }
+
+    table {  
+    border: 2px solid black;
+    text-align: left;
+    }
+
+    table {
+    border-collapse: collapse;
+    width: 990px;
+    }
+
+</style>
+<body>
+    <div class="topnav">
+        <center><h2>Vine Rover Soft Access Point</h2></center>
+    </div>
+    <div class="control">
+        <form>
+            <button name="TSTOP" button style="color:red" value="ON" accesskey="s" type="submit">STOP</button>
+            <button name="TFORWARD" button style="color:green" value="ON" accesskey="f" type="submit">FORWARD</button>
+            <button name="TBACK" button style="color:green" value="ON" accesskey="b" type="submit">BACK</button>
+            <button name="TLEFT" button style="color:green" value="ON" accesskey="l" type="submit">LEFT</button>
+            <button name="TRIGHT" button style="color:green" value="ON" accesskey="r" type="submit">RIGHT</button> <br><br>
+            <label>Speed:</label> 
+            <input type="range" onchange="updateSpeedSlider(this)" id="Id_SpeedSlider" min="0" max="100" value="%SLIDERVALUE%" step="1" class="slider"> 
+            <label id="Id_SpeedLbl" name="SpeedVal_Lbl"></label><br><br><br> 
+        </form>
+        <label id="Id_LonLbl" name="Lon_Lbl">Longitude: </label> 
+        <label id="Id_Lonval" name="LonVal_Lbl">??</label><br> 
+        <label id="Id_LatLbl" name="Lat_Lbl">  Latitude: </label>    
+        <label id="Id_Latval" name="Latval_Lbl">??</label><br>    
+        <label id="Id_AziLbl" name="Azi_Lbl">  Azimuth: </label>    
+        <label id="Id_Azival" name="Azival_Lbl">??</label><br><br>                    
+        <p class="state"><button id="Id_Initialize" onclick="tgl_initialize()" >Inititalize</button>
+        <button id="Id_SaveGPS" class="button">Save GPS</button>
+        <span id="Id_State">%STATE%</span></p><br><br>
+    </div>
+    <div class="googlemap">
+        <center><h3>Google Map</h3>
+    </div>    
+    <div class="serialstream">
+        <table class="sortable" >
+            <tr>
+                <td><label id="Id_row0" name="tbl_row0"> </label></td>
+            </tr>
+            <tr>
+                <td><label id="Id_row1" name="tbl_row1"> </label></td>
+            </tr>
+            <tr>
+                <td><label id="Id_row2" name="tbl_row2"> </label></td>
+            </tr>
+            <tr>
+                <td><label id="Id_row3" name="tbl_row3"> </label></td>
+            </tr>
+            <tr>
+                <td><label id="Id_row4" name="tbl_row4"> </label></td>
+            </tr>
+        </table>
+    </div> 
+    <script type = "text/javascript"> 
+        var gateway = `ws://${window.location.hostname}/ws`;
+        var websocket;
+
+        window.addEventListener('load', onLoad);
+        function initWebSocket() {
+            console.log('Trying to open a WebSocket connection...');
+            websocket = new WebSocket(gateway);
+            websocket.onopen    = onOpen;
+            websocket.onclose   = onClose;
+            websocket.onmessage = onMessage; 
+        }
+        function onOpen(event) {
+            console.log('Connection opened');
+        }
+        function onClose(event) {
+            console.log('Connection closed');
+            setTimeout(initWebSocket, 2000);
+        }
+        function onMessage(event) {
+            let data = JSON.parse(event.data)
+            if (data.status !== undefined)
+                document.getElementById('Id_State').innerHTML = data.status;
+
+            if (data.speedval !== undefined){
+                document.getElementById('Id_SpeedLbl').innerHTML = data.speedval;
+                document.getElementById("Id_SpeedSlider").value = data.speedval;
+                updateSpeedSlider(document.getElementById("Id_SpeedSlider"));
+            }    
+         
+            if (data.longitude !== undefined )
+                document.getElementById('Id_Lonval').innerHTML = data.longitude;
+            if (data.latitude !== undefined )    
+                document.getElementById('Id_Latval').innerHTML = data.latitude;    
+            if (data.azimuth !== undefined )                     
+                document.getElementById('Id_Azival').innerHTML = data.azimuth;
+    
+            if ( data.ID_SS0 !== undefined) 
+                document.getElementById('Id_row0').innerHTML = data.ID_SS0;
+            if ( data.ID_SS1 !== undefined ) 
+                document.getElementById('Id_row1').innerHTML = data.ID_SS1;
+            if ( data.ID_SS2 !== undefined ) 
+                document.getElementById('Id_row2').innerHTML = data.ID_SS2;
+            if ( data.ID_SS3 !== undefined ) 
+                document.getElementById('Id_row3').innerHTML = data.ID_SS3;
+            if ( data.ID_SS4 !== undefined ) 
+                document.getElementById('Id_row4').innerHTML = data.ID_SS4;
+       }
+        function onLoad(event) {
+            initWebSocket();
+            initButton();
+        }
+        function initButton() {
+            document.getElementById('Id_SaveGPS').addEventListener('click', tgl_gpsbtn);
+            document.getElementById('Id_Initialize').addEventListener('click', tgl_initialize);
+        }
+        function tgl_initialize(){
+            websocket.send(JSON.stringify({'action':'tgl_initialize'}));       
+        }
+        function tgl_gpsbtn(){
+            websocket.send(JSON.stringify({'action':'tgl_gpsbtn'}));
+        }
+        function updateSpeedSlider(element) {
+            var slider_value = document.getElementById("Id_SpeedSlider").value;
+            document.getElementById("Id_SpeedLbl").innerHTML = slider_value;
+            console.log(slider_value);
+            websocket.send(JSON.stringify({'action':'updt_speed','speed': slider_value}));    
+        }     
+    </script>
+</body>
+</html>
+)rawliteral";
